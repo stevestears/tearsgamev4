@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Steve’s Tears — Touch & Keyboard Controls</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      overflow: hidden; /* No scrollbars; game area fits the viewport */
+    }
+    header {
+      text-align: center;
+      padding: 1em;
+      background: #448AFF;
+      color: #fff;
+    }
+    h1 {
+      margin: 0.5em 0;
+    }
+    #instructions {
+      margin: 0.2em 0 0.8em 0;
+      font-size: 0.9em;
+      color: #cce2ff;
+    }
+
+    /* Game area where tears fall */
+    #game-area {
+      position: relative;
+      width: 100vw;
+      height: calc(100vh - 280px); /* minus header + panel + on-screen buttons */
+      background: #f5f5f5;
+      overflow: hidden;
+    }
+
+    /* Vial (collector) */
+    #vial {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40px;
+      height: 60px;
+      background: url('data:image/svg+xml;utf8,<svg width="40" height="60" xmlns="http://www.w3.org/2000/svg"><path d="M20 60c-8 0-14-6-14-14v-14c0-2 1-4 3-6 1-1 1-2 1-3V16a4 4 0 1 1 8 0v7c0 1 0 2 1 3 2 2 3 4 3 6v14c0 8-6 14-14 14z" fill="%23fff"/><path d="M20 61c-8 0-15-6.5-15-15V32c0-1.8.7-3.5 2-4.8.2-.3.3-.5.3-.9V16a5 5 0 0 1 10 0v10.3c0 .3.1.6.3.8 1.2 1.3 2 3 2 4.9v14c0 8.5-6.5 15-15 15zm0-44a3.993 3.993 0 0 0-4 4v10.3c0 1-.4 1.9-1.1 2.6A6 6 0 0 0 13 32v14c0 6.7 5.3 12 12 12s12-5.3 12-12V32c0-1.6-.6-3.1-1.7-4.2-.7-.7-1.1-1.6-1.1-2.6V21a4 4 0 0 0-4-4h-10z" fill="%23aaa"/></svg>')
+        no-repeat center / contain;
+      background-color: #ccc; /* fallback if SVG fails */
+    }
+
+    /* Falling tears */
+    .tear {
+      position: absolute;
+      width: 12px;
+      height: 20px;
+      background: radial-gradient(circle at 30% 30%, #88c, #eef);
+      border-radius: 40% 40% 60% 60%;
+      pointer-events: none;
+    }
+
+    /* Panel for tear count + achievements */
+    #info-panel {
+      background: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+      padding: 1em;
+      text-align: center;
+    }
+    #tear-count {
+      font-size: 1.4em;
+      margin-bottom: 0.5em;
+    }
+    #achievements {
+      max-height: 120px; /* limit visible area, scroll if needed */
+      overflow-y: auto;
+      text-align: left;
+      margin: 0 auto;
+      max-width: 600px;
+    }
+    .achievement {
+      background: #f9f9f9;
+      border-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      padding: 10px;
+      margin: 10px 0;
+      animation: fadeIn 0.5s;
+    }
+    .achievement-title {
+      font-weight: bold;
+      font-size: 1.05em;
+      margin-bottom: 0.3em;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* On-screen controls container */
+    #control-panel {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 1em;
+      background: #fff;
+      box-shadow: 0 -2px 5px rgba(0,0,0,0.15);
+    }
+    .arrow-btn {
+      width: 60px;
+      height: 60px;
+      margin: 0 10px;
+      font-size: 2em;
+      background: #448AFF;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .arrow-btn:hover {
+      background: #2979FF;
+    }
+    .arrow-btn.active {
+      background: #FF7043; /* or any color you want for an "active" highlight */
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      font-size: 0.8em;
+      color: #777;
+      margin-bottom: 1em;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Steve’s Tears — On-Screen + Keyboard Controls</h1>
+    <div id="instructions">
+      Use the on-screen buttons or arrow/A/D keys to move the vial and catch tears.
+    </div>
+  </header>
+
+  <div id="game-area">
+    <div id="vial"></div>
+  </div>
+
+  <div id="info-panel">
+    <div id="tear-count">Tears Collected: 0</div>
+    <div id="achievements"></div>
+  </div>
+
+  <!-- On-screen controls at bottom -->
+  <div id="control-panel">
+    <button id="left-btn" class="arrow-btn">←</button>
+    <button id="right-btn" class="arrow-btn">→</button>
+  </div>
+
+  <footer>
+    &copy; 2024 Steve’s Tears. Built for comedic (and definitely satirical) purposes only.
+  </footer>
+
+  <script>
+  // Basic game variables
+  var gameArea = document.getElementById('game-area');
+  var vial = document.getElementById('vial');
+  var tearCountEl = document.getElementById('tear-count');
+  var achievementsEl = document.getElementById('achievements');
+  var leftBtn = document.getElementById('left-btn');
+  var rightBtn = document.getElementById('right-btn');
+
+  // Movement flags
+  var isLeftPressed = false;
+  var isRightPressed = false;
+
+  // Tear count
+  var tearCount = 0;
+
+  // Movement parameters
+  var vialSpeed = 7;  
+  var spawnInterval = 1000; // 1 tear per second
+
+  // Achievements
+  var thresholds = [1,5,10,20,30,50,75,100];
+  var unlockedThresholds = {};
+
+  // Achievements text
+  var achievementsData = {
+    1:   { title: "Your First Drop", desc: "You made Steve cry one tear. It's potent enough to fuel a Prius halfway to Portland." },
+    5:   { title: "Grassroots Guru", desc: "Steve’s tears organized a peaceful prayer festival to topple North Korea’s regime with happy thoughts." },
+    10:  { title: "Social Media Maven", desc: "His tears applied for a Social Media Director job at E! Network. Their feed is about to go woke." },
+    20:  { title: "Meryl’s Secret Ingredient", desc: "Steve’s tears star in the magical serum from 'Death Becomes Her.' Eternal youth meets progressive synergy." },
+    30:  { title: "The Yogurt Preserver", desc: "They’re a natural preservative in FAGE Greek yogurt, ensuring every spoonful is smugly sustainable." },
+    50:  { title: "30-Year Trifecta", desc: "Year 30: cleansed Fukushima, ended a 5-year CA drought, and attended 30 Middle Earth fests. NBD." },
+    75:  { title: "Booze and Bunns", desc: "In whiskey coke: instant friend-zone. In avocado gin: overnight man bun. Hipster magic." },
+    100: { title: "Hybrid Lubrication", desc: "Now petroleum-based, Steve’s tears keep hybrid differentials slick. Sustainable irony, amirite?" }
+  };
+
+  //-------------------------------
+  // KEYBOARD EVENTS
+  //-------------------------------
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+      isLeftPressed = true;
+      leftBtn.classList.add('active');
+    }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+      isRightPressed = true;
+      rightBtn.classList.add('active');
+    }
+  });
+
+  document.addEventListener('keyup', function(e) {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+      isLeftPressed = false;
+      leftBtn.classList.remove('active');
+    }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+      isRightPressed = false;
+      rightBtn.classList.remove('active');
+    }
+  });
+
+  //-------------------------------
+  // ON-SCREEN BUTTON EVENTS
+  //-------------------------------
+  // We'll listen to "pointerdown" or "touchstart" / "mousedown"
+  // and "pointerup" or "touchend" / "mouseup".
+  // This helps on mobile or desktop.
+
+  leftBtn.addEventListener('mousedown',    () => pressLeft(true));
+  leftBtn.addEventListener('touchstart',   () => pressLeft(true));
+  leftBtn.addEventListener('mouseup',      () => pressLeft(false));
+  leftBtn.addEventListener('mouseleave',   () => pressLeft(false));
+  leftBtn.addEventListener('touchend',     () => pressLeft(false));
+  leftBtn.addEventListener('touchcancel',  () => pressLeft(false));
+
+  rightBtn.addEventListener('mousedown',   () => pressRight(true));
+  rightBtn.addEventListener('touchstart',  () => pressRight(true));
+  rightBtn.addEventListener('mouseup',     () => pressRight(false));
+  rightBtn.addEventListener('mouseleave',  () => pressRight(false));
+  rightBtn.addEventListener('touchend',    () => pressRight(false));
+  rightBtn.addEventListener('touchcancel', () => pressRight(false));
+
+  function pressLeft(isDown) {
+    isLeftPressed = isDown;
+    leftBtn.classList.toggle('active', isDown);
+  }
+  function pressRight(isDown) {
+    isRightPressed = isDown;
+    rightBtn.classList.toggle('active', isDown);
+  }
+
+  //-------------------------------
+  // SPAWN TEARS
+  //-------------------------------
+  setInterval(function() {
+    createTear();
+  }, spawnInterval);
+
+  //-------------------------------
+  // GAME LOOP
+  //-------------------------------
+  function gameLoop() {
+    moveVial();
+    moveTears();
+    requestAnimationFrame(gameLoop);
+  }
+  requestAnimationFrame(gameLoop);
+
+  //-------------------------------
+  // CREATE A TEAR
+  //-------------------------------
+  function createTear() {
+    var tear = document.createElement('div');
+    tear.classList.add('tear');
+    // random horizontal position
+    var x = Math.random() * (gameArea.clientWidth - 20);
+    tear.style.left = x + 'px';
+    // start near top
+    tear.style.top = '-30px';
+    // random speed
+    tear.dataset.speed = 2 + Math.random() * 3;
+
+    gameArea.appendChild(tear);
+  }
+
+  //-------------------------------
+  // MOVE TEARS
+  //-------------------------------
+  function moveTears() {
+    var tearElems = document.getElementsByClassName('tear');
+    for (var i = tearElems.length - 1; i >= 0; i--) {
+      var tear = tearElems[i];
+      var speed = parseFloat(tear.dataset.speed);
+      var currentTop = parseFloat(tear.style.top.replace('px',''));
+      var newTop = currentTop + speed;
+      tear.style.top = newTop + 'px';
+
+      // off screen?
+      if (newTop > gameArea.clientHeight) {
+        tear.remove();
+        continue;
+      }
+
+      // collision?
+      if (checkCollision(tear, vial)) {
+        tearCount++;
+        tearCountEl.textContent = "Tears Collected: " + tearCount;
+        tear.remove();
+        checkAchievements(tearCount);
+      }
+    }
+  }
+
+  //-------------------------------
+  // MOVE THE VIAL
+  //-------------------------------
+  function moveVial() {
+    var vialRect = vial.getBoundingClientRect();
+    var areaRect = gameArea.getBoundingClientRect();
+
+    // if not yet set, default to center
+    if (!vial.style.left) {
+      vial.style.left = (areaRect.width / 2 - vialRect.width / 2) + 'px';
+    }
+    var currentLeft = parseFloat(vial.style.left);
+
+    if (isLeftPressed)  currentLeft -= vialSpeed;
+    if (isRightPressed) currentLeft += vialSpeed;
+
+    // clamp
+    if (currentLeft < 0) currentLeft = 0;
+    if (currentLeft > areaRect.width - vialRect.width) {
+      currentLeft = areaRect.width - vialRect.width;
+    }
+    vial.style.left = currentLeft + 'px';
+  }
+
+  //-------------------------------
+  // COLLISION CHECK
+  //-------------------------------
+  function checkCollision(a, b) {
+    var aRect = a.getBoundingClientRect();
+    var bRect = b.getBoundingClientRect();
+    return !(
+      aRect.right < bRect.left  ||
+      aRect.left  > bRect.right ||
+      aRect.bottom < bRect.top  ||
+      aRect.top    > bRect.bottom
+    );
+  }
+
+  //-------------------------------
+  // CHECK ACHIEVEMENTS
+  //-------------------------------
+  function checkAchievements(count) {
+    if (thresholds.indexOf(count) !== -1 && !unlockedThresholds[count]) {
+      unlockedThresholds[count] = true; // mark unlocked
+      var data = achievementsData[count];
+      if (data) {
+        unlockAchievement(data.title, data.desc);
+      }
+    }
+  }
+
+  //-------------------------------
+  // UNLOCK AN ACHIEVEMENT
+  //-------------------------------
+  function unlockAchievement(title, desc) {
+    var achievementDiv = document.createElement('div');
+    achievementDiv.className = 'achievement';
+    achievementDiv.innerHTML = '<div class="achievement-title">' + title + '</div>' +
+                               '<div>' + desc + '</div>';
+    achievementsEl.appendChild(achievementDiv);
+    achievementDiv.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  </script>
+</body>
+</html>
